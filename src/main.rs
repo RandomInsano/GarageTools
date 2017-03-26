@@ -10,10 +10,28 @@ use std::io::prelude::*;
 use std::io::SeekFrom;
 use std::str::FromStr;
 
-static SECURITY_CODE: &'static str = "APPLESAUCE-LOVIN";
+/// Lookup table built from this page:
+/// http://www.chip-community.org/index.php/GPIO_Info
+///
+/// We're physically using CSID0-7 to map to the relay ports 0-7, and these are starting at
+/// the sysfs export point of 132.
 
+//const GPIO_PATH: &str = "/sys/class/gpio/gpio{0}/value"; // Re-typed below because Rust is dumb
+static GPIO: &'static [&'static str] = &[
+    "132",
+    "133",
+    "134",
+    "135",
+    "136",
+    "137",
+    "138",
+    "139",
+];
+
+static SECURITY_CODE: &'static str = "APPLESAUCE-LOVIN";
 static ON: &[u8] = b"1";
 static OFF: &[u8] = b"0";
+
 
 struct Relays {
     gpio_map: HashMap<String, File>,
@@ -23,11 +41,12 @@ impl Relays {
     fn new() -> Relays {
         let mut map = HashMap::new();
         for i in 0..7 {
+            let filename = format!("/sys/class/gpio/gpio{0}/value", GPIO[i]);
             let mut file = OpenOptions::new()
                 .read(true)
                 .write(true)
                 .create(true) // TODO: Remove once GPIO is used
-                .open(i.to_string()).unwrap();
+                .open(filename).unwrap();
 
             file.write(OFF).unwrap();
 
@@ -66,7 +85,7 @@ impl Relays {
 
 
 #[get("/relays/<endpoint>/<value>")]
-fn index(relays: State<Relays>, endpoint: u8, value: bool) -> String {
+fn relays(relays: State<Relays>, endpoint: u8, value: bool) -> String {
     let mut out = String::new();
     out.push_str(SECURITY_CODE);
     out.push_str("-");
@@ -74,22 +93,15 @@ fn index(relays: State<Relays>, endpoint: u8, value: bool) -> String {
 
     relays.set(endpoint, value);
 
-    // Dump current values
-    for key in 0 .. 7 {
-        let value = relays.get(key);
-
-        out.push_str("\n GPIO: ");
-        out.push_str(&key.to_string());
-        out.push_str(": ");
-        out.push_str(value.to_string().as_str());
-    }
+    out.push_str("\n Value:");
+    out.push_str(&relays.get(endpoint).to_string());
 
     out
 }
 
 fn main() {
     rocket::ignite()
-        .mount("/", routes![index])
+        .mount("/", routes![relays])
         .manage(Relays::new())
         .launch();
 }

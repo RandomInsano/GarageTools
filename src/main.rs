@@ -2,6 +2,8 @@
 #![plugin(rocket_codegen)]
 
 extern crate rocket;
+
+use rocket::request::FromParam;
 use rocket::State;
 use std::collections::HashMap;
 use std::fs::File;
@@ -9,6 +11,7 @@ use std::fs::OpenOptions;
 use std::io::prelude::*;
 use std::io::SeekFrom;
 use std::str::FromStr;
+use std::{thread, time};
 
 /// Lookup table built from this page:
 /// http://www.chip-community.org/index.php/GPIO_Info
@@ -31,10 +34,28 @@ static GPIO: &'static [&'static str] = &[
 static SECURITY_CODE: &'static str = "APPLESAUCE-LOVIN";
 static ON: &[u8] = b"1";
 static OFF: &[u8] = b"0";
+static SLEEP_TIME: u64 = 100;
 
+enum RelayCommand {
+    SETSTATE(bool),
+    CYCLE   // Tells us to cycle the relay on and off
+}
 
 struct Relays {
     gpio_map: HashMap<String, File>,
+}
+
+impl<'r> FromParam<'r> for RelayCommand {
+    type Error = &'r str;
+
+    fn from_param(param: &'r str) -> Result<RelayCommand, &'static str> {
+        match param {
+            "cycle" => Ok(RelayCommand::CYCLE),
+            "true" => Ok(RelayCommand::SETSTATE(true)),
+            "false" => Ok(RelayCommand::SETSTATE(false)),
+            _ => Err("Unable to parse")
+        }
+    }
 }
 
 impl Relays {
@@ -85,13 +106,20 @@ impl Relays {
 
 
 #[get("/relays/<endpoint>/<value>")]
-fn relays(relays: State<Relays>, endpoint: u8, value: bool) -> String {
+fn relays(relays: State<Relays>, endpoint: u8, value: RelayCommand) -> String {
     let mut out = String::new();
     out.push_str(SECURITY_CODE);
     out.push_str("-");
     out.push_str(&endpoint.to_string());
 
-    relays.set(endpoint, value);
+    match value {
+        RelayCommand::SETSTATE(x) => relays.set(endpoint, x),
+        RelayCommand::CYCLE => {
+            relays.set(endpoint, true);
+            thread::sleep(time::Duration::from_millis(SLEEP_TIME));
+            relays.set(endpoint, false);
+        }
+    }
 
     out.push_str("\n Value:");
     out.push_str(&relays.get(endpoint).to_string());

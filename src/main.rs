@@ -61,19 +61,21 @@ impl<'r> FromParam<'r> for RelayCommand {
 impl Relays {
     fn new() -> Relays {
         let mut map = HashMap::new();
-        for i in 0..7 {
+        for i in 0..8 {
             let filename = format!("/sys/class/gpio/gpio{0}/value", GPIO[i]);
             let mut file = OpenOptions::new()
                 .read(true)
                 .write(true)
-                .create(true) // TODO: Remove once GPIO is used
-                .open(filename).unwrap();
+                .create(false)
+                .open(&filename).unwrap();
 
             file.write(OFF).unwrap();
 
             file.seek(SeekFrom::Start(0)).unwrap();    // TODO: Remove this too
 
             map.insert(i.to_string(), file);
+
+            println!("Opened {} for write", filename);
         }
 
         Relays {
@@ -84,9 +86,12 @@ impl Relays {
     fn get(&self, index: u8) -> bool {
         let mut buffer = String::new();
         let index = index.to_string();
-        self.gpio_map.get(&index).unwrap().read_to_string(&mut buffer).unwrap();
+        self.gpio_map
+		.get(&index).unwrap()
+		.read_to_string(&mut buffer).unwrap();
 
-        FromStr::from_str(&buffer).unwrap()
+        //FromStr::from_str(&buffer).unwrap()
+	false
     }
 
     fn set(&self, index: u8, value: bool) {

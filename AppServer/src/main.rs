@@ -1,17 +1,25 @@
-#![feature(plugin)]
-#![plugin(rocket_codegen)]
+#![feature(decl_macro)]
+#[macro_use] extern crate rocket;
 
-extern crate rocket;
-
-use rocket::request::FromParam;
-use rocket::State;
-use std::collections::HashMap;
-use std::fs::File;
-use std::fs::OpenOptions;
-use std::io::prelude::*;
-use std::io::SeekFrom;
-use std::str::FromStr;
-use std::{thread, time};
+use rocket::{
+    http::RawStr,
+    request::FromParam,
+    State,
+    routes
+};
+use std::{
+    collections::HashMap,
+    fs::{
+        OpenOptions,
+        File
+    },
+    io::{
+        prelude::*,
+        SeekFrom
+    },
+    time,
+    thread
+};
 
 /// Lookup table built from this page:
 /// http://www.chip-community.org/index.php/GPIO_Info
@@ -19,7 +27,7 @@ use std::{thread, time};
 /// We're physically using CSID0-7 to map to the relay ports 0-7, and these are starting at
 /// the sysfs export point of 132.
 
-//const GPIO_PATH: &str = "/sys/class/gpio/gpio{0}/value"; // Re-typed below because Rust is dumb
+const GPIO_PATH: &str = "/sys/class/gpio/gpio{0}/value"; // Re-typed below because format! is dumb and can't take a constant
 static GPIO: &'static [&'static str] = &[
     "132",
     "133",
@@ -48,8 +56,8 @@ struct Relays {
 impl<'r> FromParam<'r> for RelayCommand {
     type Error = &'r str;
 
-    fn from_param(param: &'r str) -> Result<RelayCommand, &'static str> {
-        match param {
+    fn from_param(param: &'r RawStr) -> Result<RelayCommand, &'static str> {
+        match param.as_str() {
             "cycle" => Ok(RelayCommand::CYCLE),
             "true" => Ok(RelayCommand::SETSTATE(true)),
             "false" => Ok(RelayCommand::SETSTATE(false)),

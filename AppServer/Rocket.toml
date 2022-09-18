@@ -3,16 +3,20 @@ address = "0.0.0.0"
 port = 8000
 workers = 1
 log = "normal"
+secret_key = "eay2bi3GU7Px+AsacKblgfO0imc6AJcriLdq4L1kYWU="
 
 [staging]
 address = "0.0.0.0"
 port = 80
 workers = 1
 log = "normal"
+secret_key = "eay2bi3GU7Px+AsacKblgfO0imc6AJcriLdq4L1kYWU="
 
 [production]
 address = "0.0.0.0"
 port = 80
 workers = 1
 log = "critical"
+secret_key = "[make one using `openssl rand -base64 32` ]"
+
 
